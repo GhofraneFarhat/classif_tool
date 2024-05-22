@@ -1,24 +1,6 @@
+import sys #handle command-line arguments
+import re
 from collections import defaultdict
-import sys
-
-def classify_contig(description):
-    attributes = {part.split(':')[0]: part.split(':')[1] for part in description.split()[2:]}
-
-    # Check for plasmid-specific attributes
-    if 'SH' in attributes:
-        if not attributes['SH'].isdigit():
-            return 'plasmid'
-
-    # Check for chromosome-specific attributes
-    if 'LN' in attributes and int(attributes['LN']) >= 1000000:
-        return 'chromosome'
-
-    # If neither plasmid nor chromosome attributes are present, classify as ambiguous
-    if 'LN' in attributes or 'RC' in attributes or 'FC' in attributes or 'KC' in attributes:
-        return 'ambiguous'
-
-    # If no attributes are present, classify as unlabeled
-    return 'unlabeled'
 
 def classify(input_fasta, output_fasta):
     classifications = defaultdict(str)
@@ -26,15 +8,21 @@ def classify(input_fasta, output_fasta):
     with open(input_fasta, 'r') as file:
         for line in file:
             if line.startswith('>'):
-                contig_name, description = line.strip('>\n').split(' ', 1)
-                classification = classify_contig(description)
-                classifications[contig_name] = classification
+                contig_name = line.strip('>\n')
+
+                # with names
+                if 'chromosome' in contig_name.lower():
+                    classifications[contig_name] = 'chromosome'
+                elif 'plasmid' in contig_name.lower():
+                    classifications[contig_name] = 'plasmid'
+                else:
+                    classifications[contig_name] = 'ambiguous'
 
     with open(output_fasta, 'w') as output_file:
         for contig, classification in classifications.items():
             output_file.write(f'>{contig} ({classification})\n')
 
-            # Write the sequence
+            # result
             with open(input_fasta, 'r') as input_file:
                 found_contig = False
                 for seq_line in input_file:
@@ -44,6 +32,8 @@ def classify(input_fasta, output_fasta):
                         output_file.write(seq_line)
                     elif found_contig and seq_line.startswith('>'):
                         break
+
+    return output_fasta
 
 if __name__ == "__main__":
     if len(sys.argv) != 3:
